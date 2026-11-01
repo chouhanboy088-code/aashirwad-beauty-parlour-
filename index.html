@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aashirwad Beauty Parlour</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--pink:#f7dce8;--pink2:#fff4f8;--rose:#a83e68;--gold:#c49a43;--ink:#392b32;--white:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--pink2);color:var(--ink);font-family:Arial,sans-serif}
+header{background:linear-gradient(120deg,#fff,#f6dce8);padding:22px 15px;text-align:center;border-bottom:3px solid var(--gold)}
+h1{margin:0;color:var(--rose);font-size:25px}header p{margin:8px 0 0;font-size:14px}
+nav{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:12px}
+button,.btn{border:0;border-radius:10px;padding:11px 15px;background:var(--rose);color:white;font-weight:700;cursor:pointer}
+button.secondary{background:#fff;color:var(--rose);border:1px solid var(--rose)}
+main{max-width:1050px;margin:15px auto;padding:0 13px}
+.panel{background:white;border:1px solid #f0d5e0;border-radius:15px;padding:16px;margin:12px 0;box-shadow:0 3px 12px #6e29400c}
+h2{color:var(--rose);font-size:20px;margin:0 0 12px}
+input,textarea,select{width:100%;padding:12px;margin:6px 0 12px;border:1px solid #dfc3cf;border-radius:9px;font:inherit;background:white}
+label{font-size:13px;font-weight:bold}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:13px}
+.product{border:1px solid #efd7e1;border-radius:13px;overflow:hidden;background:white}
+.product img{width:100%;height:175px;object-fit:cover;background:#f8e9ef}
+.product .pad{padding:12px}.price{color:var(--rose);font-weight:bold;font-size:18px}
+.muted{color:#77666e;font-size:13px;line-height:1.5}
+.hidden{display:none!important}.row{display:flex;gap:9px;flex-wrap:wrap}.row>*{flex:1}
+.notice{background:#fff8e8;border-left:4px solid var(--gold);padding:11px;border-radius:7px;font-size:13px;line-height:1.5}
+footer{text-align:center;padding:25px;color:#79636e;font-size:13px}
+.small{font-size:12px}.danger{background:#9c3030}.status{font-size:13px;margin:8px 0;min-height:18px}
+</style>
+</head>
+<body>
+<header>
+<h1>🌸 Aashirwad Beauty Parlour 🌸</h1>
+<p>Kharuwala • Beauty & Care Products</p>
+<p style="color:#a1782d">Pink • White • Golden</p>
+</header>
+<nav>
+<button onclick="showSection('shop')">Shop</button>
+<button class="secondary" onclick="showSection('admin')">Admin Login</button>
+</nav>
+<main>
+<section id="shopSection">
+<div class="panel">
+<h2>Hamare Products</h2>
+<input id="search" placeholder="Product search karein..." oninput="renderProducts()">
+<div id="productStatus" class="status">Products load ho rahe hain...</div>
+<div id="products" class="grid"></div>
+</div>
+<div class="panel">
+<h2>Order / Contact</h2>
+<p class="muted">Product pasand aaye to WhatsApp par order bhejein. Payment aur delivery ki details WhatsApp par confirm hongi.</p>
+<a class="btn" style="display:inline-block;text-decoration:none" href="https://wa.me/917737787609?text=Namaste%2C%20mujhe%20Aashirwad%20Beauty%20Parlour%20se%20product%20order%20karna%20hai." target="_blank" rel="noopener">WhatsApp par order karein</a>
+</div>
+</section>
+
+<section id="adminSection" class="hidden">
+<div class="panel" id="loginPanel">
+<h2>Admin Login</h2>
+<p class="muted">Sirf authorized shop admin ke liye.</p>
+<label>Email</label><input id="email" type="email" autocomplete="username" placeholder="Admin email">
+<label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Password">
+<button onclick="login()">Login</button>
+<div id="loginStatus" class="status"></div>
+</div>
+<div class="panel hidden" id="dashboard">
+<div class="row" style="align-items:center"><h2 style="flex:2">Admin Dashboard</h2><button class="secondary" onclick="logout()">Logout</button></div>
+<p class="muted">Yahan se product add, edit aur delete kar sakte hain.</p>
+<h2 id="formTitle">Naya Product Add Karein</h2>
+<input type="hidden" id="editId">
+<label>Product name</label><input id="pname" placeholder="Product ka naam">
+<label>Price (₹)</label><input id="pprice" type="number" min="0" step="1" placeholder="Price">
+<label>Category</label><input id="pcategory" placeholder="Jaise skincare, makeup">
+<label>Stock</label><input id="pstock" type="number" min="0" step="1" value="1">
+<label>Image URL (public image link)</label><input id="pimage" type="url" placeholder="https://...">
+<label>Description</label><textarea id="pdescription" rows="3" placeholder="Product ki details"></textarea>
+<div class="row"><button onclick="saveProduct()">Save Product</button><button class="secondary" onclick="clearForm()">Clear</button></div>
+<div id="adminStatus" class="status"></div>
+<hr style="border:0;border-top:1px solid #f0d5e0;margin:18px 0">
+<h2>Products Manage Karein</h2><div id="adminProducts" class="grid"></div>
+<div class="notice" style="margin-top:15px"><b>Orders:</b> Customer order abhi WhatsApp par aata hai. Is version mein customer details/orders database mein store nahi hote. Public order access jaan-boojhkar enable nahi kiya gaya hai.</div>
+</div>
+</section>
+</main>
+<footer>© Aashirwad Beauty Parlour • Kharuwala</footer>
+
+<script>
+const SUPABASE_URL = "https://ekfanhnzkvrtyfjqukki.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_QNbWb6wKPRbS-OtGDUdyng_YyXerQmd";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let productCache = [];
+
+function showSection(which){
+ document.getElementById('shopSection').classList.toggle('hidden',which!=='shop');
+ document.getElementById('adminSection').classList.toggle('hidden',which!=='admin');
+}
+function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function loadProducts(){
+ const status=document.getElementById('productStatus');
+ status.textContent='Products load ho rahe hain...';
+ const {data,error}=await db.from('products').select('*').order('created_at',{ascending:false});
+ if(error){status.textContent='Products load nahi hue. Supabase table/policy check karein.';return;}
+ productCache=data||[]; status.textContent=productCache.length?`${productCache.length} product(s) available`:'Abhi products add nahi kiye gaye hain.';
+ renderProducts(); renderAdminProducts();
+}
+function productCard(p,admin=false){
+ const image=p.image_url?`<img src="${safe(p.image_url)}" alt="${safe(p.name)}" onerror="this.style.display='none'">`:`<div style="height:175px;display:grid;place-items:center;background:#faeaf0;font-size:42px">🌸</div>`;
+ return `<article class="product">${image}<div class="pad"><b>${safe(p.name)}</b><p class="muted">${safe(p.category||'Beauty product')} • Stock: ${Number(p.stock||0)}</p><p class="muted">${safe(p.description||'')}</p><div class="price">₹${Number(p.price||0).toFixed(0)}</div>${admin?`<div class="row" style="margin-top:10px"><button class="secondary" onclick="editProduct(${Number(p.id)})">Edit</button><button class="danger" onclick="deleteProduct(${Number(p.id)})">Delete</button></div>`:`<button style="margin-top:10px;width:100%" onclick="orderProduct(${Number(p.id)})">WhatsApp Order</button>`}</div></article>`;
+}
+function renderProducts(){
+ const q=(document.getElementById('search').value||'').toLowerCase();
+ const list=productCache.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q));
+ document.getElementById('products').innerHTML=list.map(p=>productCard(p)).join('');
+}
+function renderAdminProducts(){const el=document.getElementById('adminProducts');if(el)el.innerHTML=productCache.map(p=>productCard(p,true)).join('')||'<p class="muted">Abhi koi product nahi hai.</p>';}
+function orderProduct(id){
+ const p=productCache.find(x=>Number(x.id)===id);if(!p)return;
+ const msg=`Namaste, mujhe ${p.name} order karna hai. Price: ₹${p.price}. Kripya availability aur delivery confirm karein.`;
+ window.open('https://wa.me/917737787609?text='+encodeURIComponent(msg),'_blank');
+}
+async function login(){
+ const s=document.getElementById('loginStatus');s.textContent='Login ho raha hai...';
+ const {error}=await db.auth.signInWithPassword({email:document.getElementById('email').value.trim(),password:document.getElementById('password').value});
+ if(error){s.textContent='Login failed: email/password check karein.';return;}
+ const {data,error:roleError}=await db.rpc('is_admin');
+ if(roleError||data!==true){await db.auth.signOut();s.textContent='Is account ko admin permission nahi mili.';return;}
+ document.getElementById('loginPanel').classList.add('hidden');
+ document.getElementById('dashboard').classList.remove('hidden');
+ s.textContent='';await loadProducts();
+}
+async function checkSession(){
+ const {data}=await db.auth.getSession();
+ if(data.session){
+  const {data:ok}=await db.rpc('is_admin');
+  if(ok===true){document.getElementById('loginPanel').classList.add('hidden');document.getElementById('dashboard').classList.remove('hidden');}
+ }
+}
+async function logout(){await db.auth.signOut();document.getElementById('dashboard').classList.add('hidden');document.getElementById('loginPanel').classList.remove('hidden');}
+function clearForm(){['editId','pname','pprice','pcategory','pimage','pdescription'].forEach(id=>document.getElementById(id).value='');document.getElementById('pstock').value='1';document.getElementById('formTitle').textContent='Naya Product Add Karein';}
+function editProduct(id){
+ const p=productCache.find(x=>Number(x.id)===id);if(!p)return;
+ document.getElementById('editId').value=p.id;document.getElementById('pname').value=p.name||'';
+ document.getElementById('pprice').value=p.price||0;document.getElementById('pcategory').value=p.category||'';
+ document.getElementById('pstock').value=p.stock??1;document.getElementById('pimage').value=p.image_url||'';
+ document.getElementById('pdescription').value=p.description||'';document.getElementById('formTitle').textContent='Product Edit Karein';
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+async function saveProduct(){
+ const status=document.getElementById('adminStatus');status.textContent='Saving...';
+ const name=document.getElementById('pname').value.trim(),price=Number(document.getElementById('pprice').value);
+ if(!name||!Number.isFinite(price)||price<0){status.textContent='Product name aur sahi price zaroor bharein.';return;}
+ const payload={name,price,category:document.getElementById('pcategory').value.trim(),stock:Math.max(0,Number(document.getElementById('pstock').value)||0),image_url:document.getElementById('pimage').value.trim()||null,description:document.getElementById('pdescription').value.trim()};
+ const id=document.getElementById('editId').value;
+ const result=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);
+ if(result.error){status.textContent='Save nahi hua. Table columns aur admin policy check karein.';return;}
+ status.textContent='Product save ho gaya.';clearForm();await loadProducts();
+}
+async function deleteProduct(id){
+ if(!confirm('Kya aap is product ko delete karna chahte hain?'))return;
+ const {error}=await db.from('products').delete().eq('id',id);
+ if(error){document.getElementById('adminStatus').textContent='Delete nahi hua. Admin permission check karein.';return;}
+ document.getElementById('adminStatus').textContent='Product delete ho gaya.';await loadProducts();
+}
+loadProducts();checkSession();
+</script>
+</body>
+</html>
